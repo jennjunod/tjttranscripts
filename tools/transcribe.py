@@ -1,17 +1,18 @@
-"""Use Whisper to transcribe audio files to text."""
 
+"""Use Whisper to transcribe audio files to text."""
+import ssl 
 import pathlib
 import typer
 import tempfile
-
 import slugify
 import frontmatter
 import httpx
 import whisper
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from url_finder import get_audio_url_from_episode_number
 
+ssl._create_default_https_context = ssl._create_unverified_context
 app = typer.Typer()
 
 model = whisper.load_model("base")    
@@ -54,59 +55,65 @@ def split_text(text: str) -> list[str]:
 
     return new_text_segments
 
-def download_audio_file(url: str) -> str:
-    """
-    Stream Download an audio file from a URL.
+# def download_audio_file(url: str) -> str:
+#     """
+#     Stream Download an audio file from a URL.
     
-    Save the audio file to a temporary file.
+#     Save the audio file to a temporary file.
 
-    Args:
-        url: The URL of the audio file.
+#     Args:
+#         url: The URL of the audio file.
     
-    Returns:
-        The path to the downloaded audio file.
-    """
+#     Returns:
+#         The path to the downloaded audio file.
+#     """
 
-    with tempfile.NamedTemporaryFile(mode="+wb", suffix=".mp3", delete=False) as f:
-        typer.echo(f"Downloading audio file from {url}")
+#     with tempfile.NamedTemporaryFile(mode="+wb", suffix=".mp3", delete=False) as f:
+#         typer.echo(f"Downloading audio file from {url}")
 
-        with httpx.stream("GET", url, follow_redirects=True) as response:
+#         with httpx.stream("GET", url, follow_redirects=True) as response:
         
-            typer.echo(f"Saving audio file to {f.name}")
-            for chunk in response.iter_bytes():
-                f.write(chunk)
+#             typer.echo(f"Saving audio file to {f.name}")
+#             for chunk in response.iter_bytes():
+#                 f.write(chunk)
 
-        return f.name
+#         return f.name
 
 
-def transcribe_audio_file(audio_file: pathlib.Path) -> str:
+def _transcribe_audio_file(audio_file: pathlib.Path) -> str:
     """Transcribe an audio file to text"""
 
-    transcription = model.transcribe(audio=audio_file, verbose=False)
+    transcription = model.transcribe(audio=audio_file, verbose=True)
     return "\n".join(split_text(transcription["text"]))
 
+def save_transcription(audio_file: pathlib.Path, transcription_filename:pathlib.Path) -> str:
+    """Transcribe an audiofile and save transcript file"""
+    transcription = _transcribe_audio_file(audio_file) 
+    transcription_filename.write_text(transcription)
 
-def transcribe_from_audio_url(audio_url: str) -> int:
-    typer.echo(f"Transcribing audio from {audio_url}")
-    audio_file = download_audio_file(audio_url)
-    return transcribe_audio_file(audio_file)
 
 
-def transcribe_from_episode_number(episode_number: int):
-    """
-    Transcribe an episode from an episode number
+# def transcribe_from_audio_url(audio_url: str) -> int:
+#     typer.echo(f"Transcribing audio from {audio_url}")
+#     audio_file = download_audio_file(audio_url)
+#     return transcribe_audio_file(audio_file)
 
-    Metadata is pulled from the webpage contents.
 
-    Audio is downloaded from the extracted audio_url.
-    """
-    metadata, audio_url = get_audio_url_from_episode_number(episode_number)
-    transcription = transcribe_from_audio_url(audio_url)
-    post = frontmatter.Post(transcription, **metadata)
-    output_file = pathlib.Path(f"transcripts/{slugify.slugify(metadata['title'])}.md")
-    output_file.write_text(frontmatter.dumps(post))
+# def transcribe_from_episode_number(episode_number: int):
+#     """
+#     Transcribe an episode from an episode number
+
+#     Metadata is pulled from the webpage contents.
+
+#     Audio is downloaded from the extracted audio_url.
+#     """
+#     metadata, audio_url = get_audio_url_from_episode_number(episode_number)
+#     transcription = transcribe_from_audio_url(audio_url)
+#     post = frontmatter.Post(transcription, **metadata)
+#     output_file = pathlib.Path(f"transcripts/{slugify.slugify(metadata['title'])}.md")
+#     output_file.write_text(frontmatter.dumps(post))
 
 
 
 if __name__ == "__main__":
-    typer.run(transcribe_from_episode_number)
+    typer.run(save_transcription)
