@@ -1,5 +1,6 @@
 .DS_STORE
 audiofiles/
+videofiles/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
