@@ -49,7 +49,7 @@ def transcribe_videos_folder(
     audio_folder: pathlib.Path,
     transcription_folder: pathlib.Path,
 ):
-    for path in pathlib.Path(videos_folder).iterdir():
+    for path in pathlib.Path(videos_folder).glob("*.mp4"):
         audio_file = convert_video_audio_file(path, audio_folder=audio_folder)
         transcription = transcribe_audio_file(audio_file)
         transcription_folder.joinpath(audio_file.with_suffix(".txt").name).write_text(transcription)
